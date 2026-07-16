@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>数字 P2P 聊天</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        /* ===== 全局样式 ===== */
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+            background: #f2f2f7;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+        .container {
+            width: 100%;
+            max-width: 420px;
+            height: 100%;
+            max-height: 700px;
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: background 0.25s ease;
+        }
+
+        /* ===== 顶部栏 ===== */
+        .topbar {
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(10px);
+            border-bottom: 0.5px solid rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            min-height: 52px;
+            z-index: 5;
+        }
+        .topbar .my-id-area {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            padding: 4px 10px;
+            border-radius: 20px;
+            transition: background .15s;
+            font-size: 15px;
+            font-weight: 600;
+            color: #1c1c1e;
+            max-width: 60%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .topbar .my-id-area:active { background: rgba(0,0,0,0.04); }
+        .topbar .my-id-area .edit-hint {
+            font-size: 12px;
+            font-weight: 400;
+            color: #8e8e93;
+            margin-left: 4px;
+        }
+        .topbar .right-btns { display: flex; gap: 4px; align-items: center; }
+        .topbar .btn-icon {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #8e8e93;
+            padding: 4px 6px;
+            transition: transform .15s;
+            line-height: 1;
+        }
+        .topbar .btn-icon:active { transform: scale(0.9); }
+        .topbar .status-badge {
+            font-size: 12px;
+            padding: 2px 10px;
+            border-radius: 12px;
+            background: #e5e5ea;
+            color: #8e8e93;
+        }
+        .topbar .status-badge.online {
+            background: #34c759;
+            color: #fff;
+        }
+
+        /* ===== 连接视图 ===== */
+        #connectView {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .connect-row {
+            padding: 10px 16px;
+            background: rgba(255,255,255,0.3);
+            border-bottom: 0.5px solid rgba(0,0,0,0.04);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .connect-row input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 0.5px solid rgba(0,0,0,0.06);
+            border-radius: 20px;
+            font-size: 14px;
+            outline: none;
+            background: rgba(255,255,255,0.6);
+            color: #1c1c1e;
+            font-family: inherit;
+            min-width: 0;
+        }
+        .connect-row input:focus { border-color: #007aff; }
+        .connect-row .btn-connect {
+            background: #34c759;
+            color: #fff;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .15s;
+            white-space: nowrap;
+            flex-shrink: 0;
+            min-width: 52px;
+        }
+        .connect-row .btn-connect:active { background: #2db84d; }
+        .connect-row .btn-connect:disabled { opacity: 0.5; pointer-events: none; }
+
+        .friend-section {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 16px 12px;
+            background: rgba(255,255,255,0.2);
+        }
+        .friend-section .friend-title {
+            font-size: 12px;
+            color: #8e8e93;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .friend-section .friend-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .friend-section .friend-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(4px);
+            border-radius: 10px;
+            padding: 10px 14px;
+            border: 0.5px solid rgba(0,0,0,0.04);
+            cursor: pointer;
+            transition: background .15s;
+        }
+        .friend-section .friend-item:active { background: rgba(0,0,0,0.04); }
+        .friend-section .friend-item .friend-id {
+            font-size: 15px;
+            color: #1c1c1e;
+            font-weight: 500;
+        }
+        .friend-section .friend-item .del-friend {
+            color: #ff3b30;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 6px;
+            transition: background .15s;
+            line-height: 1;
+        }
+        .friend-section .friend-item .del-friend:active {
+            background: rgba(255,59,48,0.12);
+        }
+        .friend-section .empty-hint {
+            font-size: 13px;
+            color: #c7c7cc;
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        /* ===== 聊天视图 ===== */
+        #chatView {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            background: rgba(255,255,255,0.4);
+            overflow: hidden;
+        }
+        #chatView .chat-top {
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(10px);
+            padding: 10px 18px;
+            border-bottom: 0.5px solid rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        #chatView .chat-top .peer-id {
+            font-size: 14px;
+            color: #1c1c1e;
+            font-weight: 500;
+        }
+        #chatView .chat-top .peer-id small {
+            font-weight: 400;
+            color: #8e8e93;
+            font-size: 12px;
+        }
+        #chatView .chat-top .btn-disconnect {
+            background: none;
+            border: none;
+            color: #ff3b30;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+        #chatView .chat-top .btn-disconnect:active { opacity: 0.6; }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: transparent;
+        }
+        .messages .bubble-wrap {
+            display: flex;
+            flex-direction: column;
+            max-width: 78%;
+        }
+        .messages .bubble-wrap.local { align-self: flex-end; align-items: flex-end; }
+        .messages .bubble-wrap.remote { align-self: flex-start; align-items: flex-start; }
+        .messages .bubble-wrap.sys {
+            align-self: center;
+            align-items: center;
+            max-width: 90%;
+        }
+        .messages .bubble {
+            padding: 10px 14px;
+            border-radius: 18px;
+            font-size: 15px;
+            line-height: 1.5;
+            word-break: break-word;
+            box-shadow: 0 0.5px 2px rgba(0,0,0,0.04);
+        }
+        .messages .bubble-wrap.local .bubble {
+            background: #34c759;
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .messages .bubble-wrap.remote .bubble {
+            background: rgba(255,255,255,0.85);
+            color: #1c1c1e;
+            border-bottom-left-radius: 4px;
+            backdrop-filter: blur(4px);
+        }
+        .messages .bubble-wrap.sys .bubble {
+            background: transparent;
+            color: #8e8e93;
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 30px;
+        }
+        .messages .time {
+            font-size: 10px;
+            color: #8e8e93;
+            margin-top: 2px;
+            padding: 0 4px;
+        }
+        .messages .bubble-wrap.sys .time { display: none; }
+
+        .input-area {
+            padding: 10px 16px 14px;
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(10px);
+            border-top: 0.5px solid rgba(0,0,0,0.05);
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .input-area input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 0.5px solid rgba(0,0,0,0.06);
+            border-radius: 24px;
+            font-size: 15px;
+            outline: none;
+            background: rgba(255,255,255,0.6);
+            color: #1c1c1e;
+            font-family: inherit;
+        }
+        .input-area input:focus { border-color: #34c759; }
+        .input-area button {
+            background: #34c759;
+            color: #fff;
+            border: none;
+            border-radius: 24px;
+            padding: 10px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .15s;
+        }
+        .input-area button:active { background: #2db84d; }
+        .input-area button:disabled { opacity: 0.4; pointer-events: none; }
+
+        /* ===== 设置面板 ===== */
+        .settings-panel {
+            display: none;
+            position: absolute;
+            top: 52px;
+            right: 12px;
+            background: rgba(255,255,255,0.92);
+            backdrop-filter: blur(20px);
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+            z-index: 10;
+            min-width: 160px;
+            border: 0.5px solid rgba(0,0,0,0.06);
+        }
+        .settings-panel.open { display: block; }
+        .settings-panel label {
+            font-size: 13px;
+            color: #8e8e93;
+            display: block;
+            margin-bottom: 6px;
+        }
+        .settings-panel .color-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .settings-panel .color-row input {
+            flex: 1;
+            padding: 6px 10px;
+            border: 0.5px solid rgba(0,0,0,0.06);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: monospace;
+            outline: none;
+            background: rgba(255,255,255,0.6);
+        }
+        .settings-panel .color-row input:focus { border-color: #007aff; }
+        .settings-panel .color-row button {
+            background: #007aff;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .settings-panel .color-row button:active { opacity: 0.7; }
+        .settings-panel .preset-colors {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        .settings-panel .preset-colors span {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.06);
+            cursor: pointer;
+            transition: transform .1s;
+            display: inline-block;
+        }
+        .settings-panel .preset-colors span:active { transform: scale(0.9); }
+
+        /* ===== 所有弹窗遮罩（强制居中） ===== */
+        .add-friend-overlay,
+        .edit-id-overlay,
+        .custom-toast-overlay,
+        .custom-confirm-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(4px);
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+        .add-friend-overlay.open,
+        .edit-id-overlay.open,
+        .custom-toast-overlay.open,
+        .custom-confirm-overlay.open {
+            display: flex;
+        }
+
+        .add-friend-dialog,
+        .edit-id-dialog,
+        .custom-toast-box,
+        .custom-confirm-box {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px 28px;
+            max-width: 280px;
+            width: 80%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+            text-align: center;
+            cursor: default;
+            animation: toastPop 0.2s ease;
+        }
+        .add-friend-dialog h3,
+        .edit-id-dialog h3,
+        .custom-toast-box .toast-title,
+        .custom-confirm-box .confirm-title {
+            font-size: 17px;
+            font-weight: 600;
+            color: #1c1c1e;
+            margin-bottom: 4px;
+        }
+        .add-friend-dialog input,
+        .edit-id-dialog input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 0.5px solid #e5e5e5;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+            font-family: inherit;
+            margin-bottom: 12px;
+        }
+        .add-friend-dialog input:focus,
+        .edit-id-dialog input:focus {
+            border-color: #007aff;
+        }
+        .add-friend-dialog .btn-row,
+        .edit-id-dialog .btn-row,
+        .custom-confirm-box .confirm-btn-row {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+        .add-friend-dialog .btn-row button,
+        .edit-id-dialog .btn-row button,
+        .custom-confirm-box .confirm-btn-row button {
+            padding: 12px 20px;
+            min-height: 44px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background .15s;
+            flex: 1;
+            min-width: 60px;
+        }
+        .add-friend-dialog .btn-row .btn-cancel,
+        .edit-id-dialog .btn-row .btn-cancel,
+        .custom-confirm-box .confirm-btn-row .btn-cancel {
+            background: #f2f2f7;
+            color: #1c1c1e;
+        }
+        .add-friend-dialog .btn-row .btn-cancel:active,
+        .edit-id-dialog .btn-row .btn-cancel:active,
+        .custom-confirm-box .confirm-btn-row .btn-cancel:active {
+            background: #e5e5ea;
+        }
+        .add-friend-dialog .btn-row .btn-add,
+        .edit-id-dialog .btn-row .btn-save {
+            background: #007aff;
+            color: #fff;
+        }
+        .add-friend-dialog .btn-row .btn-add:active,
+        .edit-id-dialog .btn-row .btn-save:active {
+            background: #0055b3;
+        }
+        .edit-id-dialog .btn-row .btn-save:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .custom-confirm-box .confirm-btn-row .btn-danger {
+            background: #ff3b30;
+            color: #fff;
+        }
+        .custom-confirm-box .confirm-btn-row .btn-danger:active {
+            background: #d70015;
+        }
+        .custom-toast-box .toast-icon,
+        .custom-confirm-box .confirm-icon {
+            font-size: 36px;
+            margin-bottom: 8px;
+        }
+        .custom-toast-box .toast-msg,
+        .custom-confirm-box .confirm-msg {
+            font-size: 14px;
+            color: #8e8e93;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+        .custom-toast-box .toast-btn {
+            background: #007aff;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 28px;
+            min-height: 44px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background .15s;
+        }
+        .custom-toast-box .toast-btn:active {
+            background: #0055b3;
+        }
+        .edit-id-dialog .input-wrap.saving input {
+            border-color: transparent;
+            background: #ffffff;
+            animation: borderFlow 1.2s linear infinite;
+        }
+        @keyframes borderFlow {
+            0% {
+                border-image: linear-gradient(90deg, #007aff, #34c759, #ff9500, #007aff) 1;
+                border-image-slice: 1;
+                border-width: 2px;
+                border-style: solid;
+            }
+            100% {
+                border-image: linear-gradient(450deg, #007aff, #34c759, #ff9500, #007aff) 1;
+                border-image-slice: 1;
+                border-width: 2px;
+                border-style: solid;
+            }
+        }
+        @keyframes toastPop {
+            from { opacity:0; transform:scale(0.9); }
+            to { opacity:1; transform:scale(1); }
+        }
+        @media (max-width: 480px) {
+            .container { max-height: 100vh; border-radius: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container" id="app">
+
+    <!-- ===== 顶部栏 ===== -->
+    <div class="topbar">
+        <div class="my-id-area" id="myIdArea" title="点击修改自己的ID">
+            <span id="myIdDisplay">加载中</span>
+            <span class="edit-hint">✎</span>
+        </div>
+        <div class="right-btns">
+            <span class="status-badge" id="topStatus">未连接</span>
+            <button class="btn-icon" id="addFriendBtn" title="添加好友">➕</button>
+            <button class="btn-icon" id="settingsToggle" title="设置">⚙️</button>
+        </div>
+    </div>
+
+    <!-- ===== 连接视图 ===== -->
+    <div id="connectView">
+        <div class="connect-row">
+            <input id="remoteIdInput" placeholder="输入对方 ID 发送好友申请">
+            <button class="btn-connect" id="connectBtn">申请</button>
+        </div>
+        <div class="friend-section">
+            <div class="friend-title">
+                <span>👥 好友</span>
+                <span style="font-size:11px; color:#c7c7cc;" id="friendCount">0</span>
+            </div>
+            <div class="friend-list" id="friendList">
+                <div class="empty-hint">暂无好友，点击 ➕ 添加</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 聊天视图 ===== -->
+    <div id="chatView">
+        <div class="chat-top">
+            <span class="peer-id">
+                <span id="peerIdDisplay">—</span>
+                <small id="peerStatusSmall" style="margin-left:4px;"></small>
+            </span>
+            <button class="btn-disconnect" id="disconnectBtn">断开</button>
+        </div>
+        <div class="messages" id="messages"></div>
+        <div class="input-area">
+            <input id="msgInput" placeholder="输入消息..." disabled>
+            <button id="sendBtn" disabled>发送</button>
+        </div>
+    </div>
+
+    <!-- ===== 设置面板 ===== -->
+    <div class="settings-panel" id="settingsPanel">
+        <label>🎨 界面背景色</label>
+        <div class="color-row">
+            <input type="text" id="colorInput" placeholder="#ffffff" value="#ffffff">
+            <button id="applyColorBtn">应用</button>
+        </div>
+        <div class="preset-colors">
+            <span style="background:#ffffff" onclick="setBgColor('#ffffff')"></span>
+            <span style="background:#f2f2f7" onclick="setBgColor('#f2f2f7')"></span>
+            <span style="background:#e8f4f8" onclick="setBgColor('#e8f4f8')"></span>
+            <span style="background:#fce4d6" onclick="setBgColor('#fce4d6')"></span>
+            <span style="background:#d5e8d0" onclick="setBgColor('#d5e8d0')"></span>
+            <span style="background:#fff3cd" onclick="setBgColor('#fff3cd')"></span>
+        </div>
+    </div>
+
+    <!-- ===== 添加好友弹窗 ===== -->
+    <div class="add-friend-overlay" id="addFriendOverlay">
+        <div class="add-friend-dialog">
+            <h3>➕ 添加好友</h3>
+            <input id="friendIdInput" placeholder="输入对方的 ID（仅英文/数字）">
+            <div class="btn-row">
+                <button class="btn-cancel" id="cancelAddFriend">取消</button>
+                <button class="btn-add" id="confirmAddFriend">添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 修改ID弹窗 ===== -->
+    <div class="edit-id-overlay" id="editIdOverlay">
+        <div class="edit-id-dialog">
+            <h3>✎ 修改你的 ID</h3>
+            <div class="input-wrap" id="editIdWrap">
+                <input id="editIdInput" placeholder="输入新 ID（英文/数字/下划线）">
+            </div>
+            <div class="btn-row">
+                <button class="btn-cancel" id="cancelEditId">取消</button>
+                <button class="btn-save" id="saveEditId">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 自定义提示 Toast ===== -->
+    <div class="custom-toast-overlay" id="toastOverlay" onclick="closeToast()">
+        <div class="custom-toast-box" onclick="event.stopPropagation()">
+            <div class="toast-icon" id="toastIcon">⚠️</div>
+            <div class="toast-title" id="toastTitle">提示</div>
+            <div class="toast-msg" id="toastMsg">消息内容</div>
+            <button class="toast-btn" onclick="closeToast()">我知道了</button>
+        </div>
+    </div>
+
+    <!-- ===== 自定义确认框 Confirm ===== -->
+    <div class="custom-confirm-overlay" id="confirmOverlay" onclick="closeConfirm()">
+        <div class="custom-confirm-box" onclick="event.stopPropagation()">
+            <div class="confirm-icon" id="confirmIcon">⚠️</div>
+            <div class="confirm-title" id="confirmTitle">确认</div>
+            <div class="confirm-msg" id="confirmMsg">确定执行此操作？</div>
+            <div class="confirm-btn-row">
+                <button class="btn-cancel" id="confirmCancelBtn">取消</button>
+                <button class="btn-danger" id="confirmOkBtn">确定</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // ============================================================
+    // 自定义 Toast / Confirm
+    // ============================================================
+    function showToast(title, msg, icon) {
+        document.getElementById('toastIcon').textContent = icon || '⚠️';
+        document.getElementById('toastTitle').textContent = title || '提示';
+        document.getElementById('toastMsg').textContent = msg || '';
+        document.getElementById('toastOverlay').classList.add('open');
+    }
+    function closeToast() {
+        document.getElementById('toastOverlay').classList.remove('open');
+    }
+
+    var confirmResolve = null;
+    function showConfirm(title, msg, icon) {
+        return new Promise(function(resolve) {
+            document.getElementById('confirmIcon').textContent = icon || '⚠️';
+            document.getElementById('confirmTitle').textContent = title || '确认';
+            document.getElementById('confirmMsg').textContent = msg || '确定执行此操作？';
+            document.getElementById('confirmOverlay').classList.add('open');
+            confirmResolve = resolve;
+        });
+    }
+    function closeConfirm(result) {
+        document.getElementById('confirmOverlay').classList.remove('open');
+        if (confirmResolve) { confirmResolve(!!result); confirmResolve = null; }
+    }
+    document.getElementById('confirmCancelBtn').onclick = function() { closeConfirm(false); };
+    document.getElementById('confirmOkBtn').onclick = function() { closeConfirm(true); };
+    document.getElementById('confirmOverlay').addEventListener('click', function(e) {
+        if (e.target === this) closeConfirm(false);
+    });
+
+    // ============================================================
+    // 核心逻辑
+    // ============================================================
+    var peer = null, conn = null, myId = '';
+    var peerReady = false;
+    var friends = JSON.parse(localStorage.getItem('p2p_friends') || '[]');
+    var currentTarget = '';
+    var isFriendChat = false;
+
+    // DOM 引用
+    var container = document.getElementById('app');
+    var myIdDisplay = document.getElementById('myIdDisplay');
+    var myIdArea = document.getElementById('myIdArea');
+    var editIdOverlay = document.getElementById('editIdOverlay');
+    var editIdWrap = document.getElementById('editIdWrap');
+    var editIdInput = document.getElementById('editIdInput');
+    var cancelEditId = document.getElementById('cancelEditId');
+    var saveEditIdBtn = document.getElementById('saveEditId');
+    var remoteIdInput = document.getElementById('remoteIdInput');
+    var connectBtn = document.getElementById('connectBtn');
+    var topStatus = document.getElementById('topStatus');
+    var friendList = document.getElementById('friendList');
+    var friendCount = document.getElementById('friendCount');
+    var connectView = document.getElementById('connectView');
+    var chatView = document.getElementById('chatView');
+    var messages = document.getElementById('messages');
+    var msgInput = document.getElementById('msgInput');
+    var sendBtn = document.getElementById('sendBtn');
+    var peerIdDisplay = document.getElementById('peerIdDisplay');
+    var peerStatusSmall = document.getElementById('peerStatusSmall');
+    var disconnectBtn = document.getElementById('disconnectBtn');
+
+    var settingsToggle = document.getElementById('settingsToggle');
+    var settingsPanel = document.getElementById('settingsPanel');
+    var colorInput = document.getElementById('colorInput');
+    var applyColorBtn = document.getElementById('applyColorBtn');
+
+    var addFriendBtn = document.getElementById('addFriendBtn');
+    var addFriendOverlay = document.getElementById('addFriendOverlay');
+    var friendIdInput = document.getElementById('friendIdInput');
+    var cancelAddFriend = document.getElementById('cancelAddFriend');
+    var confirmAddFriend = document.getElementById('confirmAddFriend');
+
+    // ---------- 工具 ----------
+    function getTimeStr() {
+        var d = new Date();
+        return d.getHours().toString().padStart(2, '0') + ':' +
+               d.getMinutes().toString().padStart(2, '0') + ':' +
+               d.getSeconds().toString().padStart(2, '0');
+    }
+
+    function appendMsg(text, type, time) {
+        var wrap = document.createElement('div');
+        wrap.className = 'bubble-wrap ' + (type || 'sys');
+        var bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.textContent = text;
+        wrap.appendChild(bubble);
+        if (time) {
+            var t = document.createElement('div');
+            t.className = 'time';
+            t.textContent = time;
+            wrap.appendChild(t);
+        }
+        messages.appendChild(wrap);
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    function setTopStatus(text, online) {
+        topStatus.textContent = text;
+        topStatus.className = 'status-badge' + (online ? ' online' : '');
+    }
+
+    function setConnectedView(connected) {
+        if (connected) {
+            connectView.style.display = 'none';
+            chatView.style.display = 'flex';
+            msgInput.disabled = false;
+            sendBtn.disabled = false;
+            setTopStatus('已连接', true);
+        } else {
+            connectView.style.display = 'flex';
+            chatView.style.display = 'none';
+            msgInput.disabled = true;
+            sendBtn.disabled = true;
+            setTopStatus('未连接', false);
+            peerIdDisplay.textContent = '—';
+            peerStatusSmall.textContent = '';
+        }
+    }
+
+    // ---------- ID ----------
+    function isValidId(id) { return /^[a-zA-Z0-9_]+$/.test(id); }
+    function generateId() { return Math.floor(1000 + Math.random() * 9000).toString(); }
+    function getSavedId() {
+        var saved = localStorage.getItem('p2p_my_id');
+        if (saved && saved.trim() !== '' && isValidId(saved.trim())) return saved.trim();
+        var newId = generateId();
+        localStorage.setItem('p2p_my_id', newId);
+        return newId;
+    }
+
+    function updateMyIdDisplay() {
+        myIdDisplay.textContent = myId || '未设置';
+    }
+
+    // ---------- 好友管理 ----------
+    function saveFriends() {
+        localStorage.setItem('p2p_friends', JSON.stringify(friends));
+        renderFriends();
+    }
+    function addFriend(id) {
+        if (!id || id.trim() === '') return false;
+        id = id.trim();
+        if (id === myId) return false;
+        if (friends.includes(id)) return false;
+        friends.push(id);
+        saveFriends();
+        return true;
+    }
+    function removeFriend(id) {
+        friends = friends.filter(function(f) { return f !== id; });
+        saveFriends();
+    }
+    function renderFriends() {
+        friendCount.textContent = friends.length;
+        if (friends.length === 0) {
+            friendList.innerHTML = '<div class="empty-hint">暂无好友，点击 ➕ 添加</div>';
+            return;
+        }
+        friendList.innerHTML = friends.map(function(id) {
+            return '<div class="friend-item" data-id="' + id + '">' +
+                '<span class="friend-id">' + id + '</span>' +
+                '<span class="del-friend" data-id="' + id + '">✕</span>' +
+                '</div>';
+        }).join('');
+    }
+
+    // ---------- Peer ----------
+    function waitForPeerReady() {
+        return new Promise(function(resolve) {
+            if (peer && peer.open) { resolve(); return; }
+            var handler = function() { peer.off('open', handler); resolve(); };
+            if (peer) { peer.on('open', handler); } else { resolve(); }
+            setTimeout(function() { if (peer) peer.off('open', handler); resolve(); }, 5000);
+        });
+    }
+
+    // 清理连接
+    function cleanupConnection() {
+        clearConnectTimeout();
+        if (conn) {
+            conn.close();
+            conn = null;
+        }
+        currentTarget = '';
+        isFriendChat = false;
+        isOfflineMode = false;
+        setConnectedView(false);
+        peerIdDisplay.textContent = '—';
+        peerStatusSmall.textContent = '';
+        peerStatusSmall.style.color = '';
+        connectBtn.disabled = false;
+        connectBtn.textContent = '申请';
+    }
+
+    // 处理好友请求
+    function handleFriendRequest(fromId) {
+        showConfirm('好友申请', fromId + ' 请求添加你为好友', '👤').then(function(accepted) {
+            if (accepted) {
+                if (conn && conn.open) {
+                    conn.send(JSON.stringify({ type: 'friend_accept', from: myId }));
+                }
+                if (addFriend(fromId)) {
+                    appendMsg('✅ 已接受 ' + fromId + ' 的好友申请', 'sys');
+                }
+                currentTarget = fromId;
+                isFriendChat = true;
+                peerIdDisplay.textContent = fromId;
+                peerStatusSmall.textContent = '已连接';
+                setConnectedView(true);
+                appendMsg('📞 与 ' + fromId + ' 的聊天已建立', 'sys');
+                checkAndSendOffline(fromId);
+            } else {
+                if (conn && conn.open) {
+                    conn.send(JSON.stringify({ type: 'friend_reject', from: myId }));
+                }
+                appendMsg('❌ 已拒绝 ' + fromId + ' 的好友申请', 'sys');
+                cleanupConnection();
+                connectView.style.display = 'flex';
+                chatView.style.display = 'none';
+                connectBtn.disabled = false;
+                connectBtn.textContent = '申请';
+            }
+        });
+    }
+
+    // 处理收到的消息
+    function handleData(data) {
+        try {
+            var msg = JSON.parse(data);
+            if (msg.type === 'friend_request') {
+                handleFriendRequest(msg.from);
+            } else if (msg.type === 'friend_accept') {
+                var fromId = msg.from;
+                if (addFriend(fromId)) {
+                    appendMsg('✅ ' + fromId + ' 已接受你的好友申请', 'sys');
+                }
+                currentTarget = fromId;
+                isFriendChat = true;
+                peerIdDisplay.textContent = fromId;
+                peerStatusSmall.textContent = '已连接';
+                setConnectedView(true);
+                appendMsg('📞 与 ' + fromId + ' 的聊天已建立', 'sys');
+                checkAndSendOffline(fromId);
+            } else if (msg.type === 'friend_reject') {
+                appendMsg('❌ ' + msg.from + ' 拒绝了你的好友申请', 'sys');
+                cleanupConnection();
+                connectView.style.display = 'flex';
+                chatView.style.display = 'none';
+                connectBtn.disabled = false;
+                connectBtn.textContent = '申请';
+            } else if (msg.type === 'chat') {
+                appendMsg('👤 ' + msg.text, 'remote', msg.time || getTimeStr());
+            } else {
+                appendMsg('👤 ' + data, 'remote', getTimeStr());
+            }
+        } catch (e) {
+            appendMsg('👤 ' + data, 'remote', getTimeStr());
+        }
+    }
+
+    // ---------- 发送好友申请 ----------
+    async function sendFriendRequest(targetId) {
+        await waitForPeerReady();
+        if (!peer) { showToast('未初始化', '请先设置 ID', '⚠️'); return; }
+        if (conn) { cleanupConnection(); }
+        clearConnectTimeout();
+        if (targetId === myId) { showToast('错误', '不能添加自己', '🚫'); return; }
+        if (friends.includes(targetId)) {
+            showToast('提示', '对方已是好友，直接聊天', 'ℹ️');
+            connectToFriend(targetId);
+            return;
+        }
+
+        currentTarget = targetId;
+        isOfflineMode = false;
+        connectBtn.disabled = true;
+        connectBtn.textContent = '申请中';
+        peerIdDisplay.textContent = targetId;
+        peerStatusSmall.textContent = '连接中...';
+        peerStatusSmall.style.color = '';
+        setConnectedView(false);
+        connectView.style.display = 'none';
+        chatView.style.display = 'flex';
+        msgInput.disabled = true;
+        sendBtn.disabled = true;
+
+        try {
+            var newConn = peer.connect(targetId, { reliable: true });
+            conn = newConn;
+            conn.on('data', function(data) {
+                handleData(data);
+            });
+            conn.on('open', function() {
+                clearConnectTimeout();
+                conn.send(JSON.stringify({ type: 'friend_request', from: myId }));
+                appendMsg('📨 已发送好友申请给 ' + targetId, 'sys');
+                peerStatusSmall.textContent = '等待对方确认...';
+                setTimeout(function() {
+                    if (!isFriendChat && conn && conn.open) {
+                        appendMsg('⏰ 对方未回应，请稍后重试', 'sys');
+                        cleanupConnection();
+                        connectView.style.display = 'flex';
+                        chatView.style.display = 'none';
+                        connectBtn.disabled = false;
+                        connectBtn.textContent = '申请';
+                    }
+                }, 10000);
+            });
+            conn.on('close', function() {
+                clearConnectTimeout();
+                if (!isFriendChat) {
+                    appendMsg('❌ 连接已关闭，对方可能不在线', 'sys');
+                    appendMsg('💡 可稍后重试，或点击好友列表中的用户重新连接', 'sys');
+                    cleanupConnection();
+                    connectView.style.display = 'flex';
+                    chatView.style.display = 'none';
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = '申请';
+                }
+            });
+            conn.on('error', function(err) {
+                clearConnectTimeout();
+                if (!isFriendChat) {
+                    appendMsg('❌ 连接失败，对方可能不在线: ' + (err && err.message || ''), 'sys');
+                    appendMsg('💡 可稍后重试，或点击好友列表中的用户重新连接', 'sys');
+                    cleanupConnection();
+                    connectView.style.display = 'flex';
+                    chatView.style.display = 'none';
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = '申请';
+                }
+            });
+        } catch (e) {
+            clearConnectTimeout();
+            appendMsg('❌ 连接失败: ' + e.message, 'sys');
+            cleanupConnection();
+            connectView.style.display = 'flex';
+            chatView.style.display = 'none';
+            connectBtn.disabled = false;
+            connectBtn.textContent = '申请';
+        }
+    }
+
+    // ---------- 与已有好友直接聊天 ----------
+    // connectTimeout: 连接超时定时器
+    var connectTimeout = null;
+
+    function enterOfflineMode(friendId) {
+        // 进入离线消息模式：对方不在线，但允许缓存消息
+        isOfflineMode = true;
+        currentTarget = friendId;
+        isFriendChat = true;
+        connectBtn.disabled = false;
+        connectBtn.textContent = '申请';
+        peerIdDisplay.textContent = friendId;
+        peerStatusSmall.textContent = '离线';
+        peerStatusSmall.style.color = '#ff9500';
+        msgInput.disabled = false;
+        sendBtn.disabled = false;
+        connectView.style.display = 'none';
+        chatView.style.display = 'flex';
+        appendMsg('📴 对方当前不在线，消息将缓存到本地', 'sys');
+        appendMsg('💡 对方上线后，缓存的消息会自动发送', 'sys');
+        var pending = getOfflineMessages(friendId);
+        if (pending.length > 0) {
+            appendMsg('📦 当前已缓存 ' + pending.length + ' 条待发送消息', 'sys');
+        }
+    }
+
+    function clearConnectTimeout() {
+        if (connectTimeout) {
+            clearTimeout(connectTimeout);
+            connectTimeout = null;
+        }
+    }
+
+    async function connectToFriend(friendId) {
+        await waitForPeerReady();
+        if (!peer) { showToast('未初始化', '请先设置 ID', '⚠️'); return; }
+        if (conn) { cleanupConnection(); }
+        clearConnectTimeout();
+        if (friendId === myId) { showToast('错误', '不能连接自己', '🚫'); return; }
+
+        currentTarget = friendId;
+        isFriendChat = true;
+        isOfflineMode = false;
+        connectBtn.disabled = true;
+        connectBtn.textContent = '连接中';
+        peerIdDisplay.textContent = friendId;
+        peerStatusSmall.textContent = '连接中...';
+        peerStatusSmall.style.color = '';
+        setConnectedView(false);
+        connectView.style.display = 'none';
+        chatView.style.display = 'flex';
+        msgInput.disabled = true;
+        sendBtn.disabled = true;
+
+        try {
+            var newConn = peer.connect(friendId, { reliable: true });
+            conn = newConn;
+            // 8 秒超时：对方不在线则进入离线消息模式
+            connectTimeout = setTimeout(function() {
+                // 直接丢弃连接对象，不调用 close()（避免触发 conn 事件循环）
+                conn = null;
+                enterOfflineMode(friendId);
+            }, 8000);
+            conn.on('data', function(data) {
+                handleData(data);
+            });
+            conn.on('open', function() {
+                clearConnectTimeout();
+                isOfflineMode = false;
+                peerStatusSmall.textContent = '已连接';
+                peerStatusSmall.style.color = '';
+                setConnectedView(true);
+                appendMsg('📞 与 ' + friendId + ' 的聊天已建立', 'sys');
+                checkAndSendOffline(friendId);
+                connectBtn.disabled = false;
+                connectBtn.textContent = '申请';
+            });
+            conn.on('close', function() {
+                clearConnectTimeout();
+                // 好友聊天中对方断开 → 直接进入离线消息模式
+                appendMsg('🔌 对方已断开，进入离线消息模式', 'sys');
+                enterOfflineMode(friendId);
+            });
+            conn.on('error', function(err) {
+                clearConnectTimeout();
+                // 连接失败 → 直接进入离线消息模式
+                appendMsg('⚠️ 连接异常，进入离线消息模式', 'sys');
+                enterOfflineMode(friendId);
+            });
+        } catch (e) {
+            clearConnectTimeout();
+            appendMsg('❌ 连接失败: ' + e.message, 'sys');
+            enterOfflineMode(friendId);
+        }
+    }
+
+    // ---------- 发送聊天消息 ----------
+    // isOfflineMode: 当前是否处于离线消息模式（对方不在线，消息先缓存）
+    var isOfflineMode = false;
+
+    function sendChatMessage(text) {
+        if (!text.trim()) return;
+        var timeStr = getTimeStr();
+        if (!conn || !conn.open) {
+            // 对方不在线 — 缓存消息到本地，等待下次连接自动发送
+            if (currentTarget) {
+                saveOfflineMessage(currentTarget, text, timeStr);
+                appendMsg(text, 'local', timeStr);
+                appendMsg('📤 对方离线，消息已缓存，上线后自动发送', 'sys');
+            } else {
+                appendMsg('❌ 未选择聊天对象', 'sys');
+            }
+            return;
+        }
+        var msgObj = { type: 'chat', text: text, time: timeStr };
+        conn.send(JSON.stringify(msgObj));
+        appendMsg(text, 'local', timeStr);
+    }
+
+    // ---------- 离线消息队列（仅用于好友聊天） ----------
+    function getOfflineMessages(targetId) {
+        var key = 'p2p_offline_' + targetId;
+        return JSON.parse(localStorage.getItem(key) || '[]');
+    }
+    function saveOfflineMessage(targetId, msg, time) {
+        var key = 'p2p_offline_' + targetId;
+        var list = getOfflineMessages(targetId);
+        list.push({ time: time, text: msg });
+        localStorage.setItem(key, JSON.stringify(list));
+    }
+    function clearOfflineMessages(targetId) {
+        var key = 'p2p_offline_' + targetId;
+        localStorage.removeItem(key);
+    }
+    function checkAndSendOffline(targetId) {
+        var msgs = getOfflineMessages(targetId);
+        if (msgs.length > 0 && conn && conn.open) {
+            appendMsg('📤 正在发送 ' + msgs.length + ' 条缓存消息...', 'sys');
+            msgs.forEach(function(item) {
+                var msgObj = { type: 'chat', text: item.text, time: item.time };
+                conn.send(JSON.stringify(msgObj));
+                appendMsg(item.text, 'local', item.time);
+            });
+            clearOfflineMessages(targetId);
+            appendMsg('✅ ' + msgs.length + ' 条缓存消息已全部发送', 'sys');
+        }
+    }
+
+    // ---------- 修改ID ----------
+    function openEditId() {
+        editIdInput.value = myId || '';
+        editIdOverlay.classList.add('open');
+        editIdInput.focus();
+        editIdWrap.classList.remove('saving');
+        saveEditIdBtn.disabled = false;
+        saveEditIdBtn.textContent = '保存';
+    }
+    async function saveEditIdFn() {
+        var newId = editIdInput.value.trim();
+        if (!newId) { showToast('错误', 'ID 不能为空', '⚠️'); return; }
+        if (!isValidId(newId)) {
+            showToast('格式错误', '仅支持英文、数字、下划线', '❌');
+            return;
+        }
+        if (newId === myId) { showToast('提示', 'ID 未改变', 'ℹ️'); editIdOverlay.classList.remove('open'); return; }
+        if (conn) { conn.close(); conn = null; }
+
+        editIdWrap.classList.add('saving');
+        saveEditIdBtn.disabled = true;
+        saveEditIdBtn.textContent = '保存中';
+
+        try {
+            localStorage.setItem('p2p_my_id', newId);
+            await initPeer(newId);
+            editIdOverlay.classList.remove('open');
+            appendMsg('✅ ID 已更新为: ' + myId, 'sys');
+            renderFriends();
+        } catch (e) {
+            showToast('保存失败', '请重试', '❌');
+        } finally {
+            editIdWrap.classList.remove('saving');
+            saveEditIdBtn.disabled = false;
+            saveEditIdBtn.textContent = '保存';
+        }
+    }
+
+    // ---------- 颜色 ----------
+    function setBgColor(color) {
+        if (!/^#[0-9a-fA-F]{6}$/.test(color)) { showToast('格式错误', '请输入正确颜色码', '🎨'); return; }
+        container.style.background = color;
+        document.body.style.background = color;
+        localStorage.setItem('chatBgColor', color);
+        colorInput.value = color;
+        settingsPanel.classList.remove('open');
+    }
+
+    // ---------- Peer 初始化（修复好友重连） ----------
+    async function initPeer(id) {
+        if (peer) { peer.destroy(); peer = null; peerReady = false; await new Promise(r => setTimeout(r, 300)); }
+        if (!id || id.trim() === '') { id = getSavedId(); }
+        if (!isValidId(id)) {
+            var newId = generateId();
+            showToast('ID 无效', '已自动更换为 ' + newId, '🔄');
+            localStorage.setItem('p2p_my_id', newId);
+            id = newId;
+        }
+        myId = id;
+        localStorage.setItem('p2p_my_id', myId);
+        updateMyIdDisplay();
+        peerReady = false;
+
+        peer = new Peer(id, {
+            host: '0.peerjs.com',
+            port: 443,
+            path: '/',
+            debug: 0,
+            config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+        });
+
+        peer.on('open', function() {
+            myId = peer.id;
+            localStorage.setItem('p2p_my_id', myId);
+            updateMyIdDisplay();
+            peerReady = true;
+            setTopStatus('等待连接', false);
+            appendMsg('🔑 你的 ID: ' + myId, 'sys');
+            if (conn) { cleanupConnection(); }
+            setConnectedView(false);
+            connectBtn.disabled = false;
+            connectBtn.textContent = '申请';
+            renderFriends();
+        });
+
+        // ★★★ 修复：被动接收连接时自动检测是否为好友 ★★★
+        peer.on('connection', function(incoming) {
+            if (conn) {
+                incoming.close();
+                return;
+            }
+            var remoteId = incoming.peer;
+            // 判断是否在好友列表中
+            if (friends.includes(remoteId)) {
+                // 好友直连，自动接受并进入聊天
+                conn = incoming;
+                currentTarget = remoteId;
+                isFriendChat = true;
+                isOfflineMode = false;
+                connectView.style.display = 'none';
+                chatView.style.display = 'flex';
+                peerIdDisplay.textContent = remoteId;
+                peerStatusSmall.textContent = '已连接';
+                peerStatusSmall.style.color = '';
+                setConnectedView(true);
+                appendMsg('📞 与好友 ' + remoteId + ' 的聊天已建立', 'sys');
+                checkAndSendOffline(remoteId);
+                conn.on('data', function(data) {
+                    handleData(data);
+                });
+                conn.on('close', function() {
+                    appendMsg('🔌 对方已断开，进入离线消息模式', 'sys');
+                    enterOfflineMode(remoteId);
+                });
+            } else {
+                // 非好友，先建立连接，等待对方发送 friend_request
+                conn = incoming;
+                connectView.style.display = 'none';
+                chatView.style.display = 'flex';
+                peerIdDisplay.textContent = remoteId;
+                peerStatusSmall.textContent = '连接中...';
+                conn.on('data', function(data) {
+                    handleData(data);
+                });
+                conn.on('close', function() {
+                    appendMsg('🔌 对方已断开', 'sys');
+                    cleanupConnection();
+                    connectView.style.display = 'flex';
+                    chatView.style.display = 'none';
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = '申请';
+                });
+            }
+        });
+
+        peer.on('error', function(err) {
+            if (err.type === 'peer-unavailable' ||
+                err.type === 'connection-error' ||
+                err.type === 'connection-failed' ||
+                err.type === 'socket-error' ||
+                err.type === 'server-error') {
+                // 连接失败 — 如果正在尝试连接好友，立即进入离线模式
+                clearConnectTimeout();
+                if (isFriendChat && currentTarget) {
+                    appendMsg('⚠️ 无法连接到 ' + currentTarget + '，进入离线消息模式', 'sys');
+                    conn = null;
+                    enterOfflineMode(currentTarget);
+                } else if (conn) {
+                    appendMsg('❌ 连接失败: ' + err.message, 'sys');
+                    appendMsg('💡 对方可能不在线，可稍后重试', 'sys');
+                    cleanupConnection();
+                    connectView.style.display = 'flex';
+                    chatView.style.display = 'none';
+                }
+                return;
+            }
+            if (err.type === 'unavailable-id') {
+                var newId = generateId();
+                showToast('ID 被占用', '自动更换为 ' + newId, '🔄');
+                localStorage.setItem('p2p_my_id', newId);
+                myId = newId;
+                updateMyIdDisplay();
+                initPeer(newId);
+            } else {
+                appendMsg('❌ 错误: ' + err.message, 'sys');
+            }
+        });
+    }
+
+    // ---------- UI 事件绑定 ----------
+    myIdArea.onclick = openEditId;
+    cancelEditId.onclick = function() {
+        editIdOverlay.classList.remove('open');
+        editIdWrap.classList.remove('saving');
+        saveEditIdBtn.disabled = false;
+        saveEditIdBtn.textContent = '保存';
+    };
+    saveEditIdBtn.onclick = saveEditIdFn;
+    editIdInput.addEventListener('keyup', function(e) { if (e.key === 'Enter') saveEditIdFn(); });
+
+    connectBtn.onclick = function() {
+        var target = remoteIdInput.value.trim();
+        if (!target) { showToast('错误', '请输入对方 ID', '⚠️'); return; }
+        if (!isValidId(target)) { showToast('格式错误', '仅支持英文、数字、下划线', '❌'); return; }
+        sendFriendRequest(target);
+        remoteIdInput.value = '';
+    };
+    remoteIdInput.addEventListener('keyup', function(e) { if (e.key === 'Enter') connectBtn.click(); });
+
+    disconnectBtn.onclick = function() {
+        clearConnectTimeout();
+        var pending = currentTarget ? getOfflineMessages(currentTarget) : [];
+        if (conn) { conn.close(); conn = null; }
+        cleanupConnection();
+        isOfflineMode = false;
+        connectView.style.display = 'flex';
+        chatView.style.display = 'none';
+        connectBtn.disabled = false;
+        connectBtn.textContent = '申请';
+        if (pending.length > 0) {
+            appendMsg('📦 已缓存 ' + pending.length + ' 条离线消息，下次连接 ' + currentTarget + ' 时自动发送', 'sys');
+        }
+        appendMsg('🔌 已断开', 'sys');
+    };
+
+    sendBtn.onclick = function() {
+        var text = msgInput.value;
+        if (text.trim()) {
+            sendChatMessage(text);
+            msgInput.value = '';
+        }
+    };
+    msgInput.addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') sendBtn.click();
+    });
+
+    settingsToggle.onclick = function(e) { e.stopPropagation(); settingsPanel.classList.toggle('open'); };
+    document.addEventListener('click', function(e) {
+        if (!settingsPanel.contains(e.target) && e.target !== settingsToggle) settingsPanel.classList.remove('open');
+    });
+    applyColorBtn.onclick = function() { setBgColor(colorInput.value.trim()); };
+    document.querySelectorAll('.preset-colors span').forEach(function(span) {
+        span.onclick = function() {
+            var rgb = this.style.backgroundColor.match(/\d+/g);
+            if (rgb) {
+                var hex = '#' + rgb.map(function(v) { return parseInt(v).toString(16).padStart(2,'0'); }).join('');
+                setBgColor(hex);
+                colorInput.value = hex;
+            }
+        };
+    });
+    var savedBg = localStorage.getItem('chatBgColor');
+    if (savedBg && /^#[0-9a-fA-F]{6}$/.test(savedBg)) setTimeout(function() { setBgColor(savedBg); }, 50);
+
+    addFriendBtn.onclick = function() {
+        addFriendOverlay.classList.add('open');
+        friendIdInput.value = '';
+        friendIdInput.focus();
+    };
+    cancelAddFriend.onclick = function() { addFriendOverlay.classList.remove('open'); };
+    confirmAddFriend.onclick = function() {
+        var id = friendIdInput.value.trim();
+        if (addFriend(id)) {
+            addFriendOverlay.classList.remove('open');
+            appendMsg('✅ 已添加好友: ' + id, 'sys');
+        } else {
+            if (!id) showToast('错误', '请输入 ID', '⚠️');
+            else if (id === myId) showToast('错误', '不能添加自己', '🚫');
+            else if (friends.includes(id)) showToast('提示', '好友已存在', 'ℹ️');
+            else showToast('错误', '无效的 ID', '❌');
+        }
+    };
+    friendIdInput.addEventListener('keyup', function(e) { if (e.key === 'Enter') confirmAddFriend.click(); });
+    addFriendOverlay.addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
+
+    friendList.addEventListener('click', function(e) {
+        var item = e.target.closest('.friend-item');
+        if (!item) return;
+        var id = item.dataset.id;
+        if (e.target.classList.contains('del-friend')) {
+            showConfirm('删除好友', '确定删除 ' + id + ' ？', '🗑️').then(function(ok) {
+                if (ok) {
+                    removeFriend(id);
+                    appendMsg('🗑️ 已删除: ' + id, 'sys');
+                }
+            });
+            return;
+        }
+        if (id && id !== myId) {
+            connectToFriend(id);
+        }
+    });
+
+    // ---------- 启动 ----------
+    var savedId = getSavedId();
+    myId = savedId;
+    updateMyIdDisplay();
+    initPeer(savedId);
+    setConnectedView(false);
+    renderFriends();
+    appendMsg('💡 点击左上角 ID 可修改', 'sys');
+    appendMsg('📌 仅支持英文、数字、下划线', 'sys');
+    appendMsg('👤 输入对方 ID 可发送好友申请', 'sys');
+</script>
+</body>
+</html>
