@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件加密箱 + 音乐播放器 (纯前端)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js">
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: #0f172a;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .app-container {
+            background: #1e293b;
+            border-radius: 24px;
+            padding: 30px 35px;
+            max-width: 750px;
+            width: 100%;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+            border: 1px solid #334155;
+            position: relative;
+        }
+
+        h1 {
+            color: #f1f5f9;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .subtitle {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 28px;
+            border-left: 3px solid #3b82f6;
+            padding-left: 14px;
+        }
+
+        .mode-tabs {
+            display: flex;
+            gap: 0;
+            background: #0f172a;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 30px;
+            border: 1px solid #334155;
+        }
+
+        .mode-tab {
+            flex: 1;
+            padding: 10px 0;
+            text-align: center;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mode-tab.active {
+            background: #3b82f6;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .mode-tab:not(.active):hover {
+            color: #e2e8f0;
+            background: #1e293b;
+        }
+
+        .panel {
+            display: none;
+            animation: fadeIn 0.25s ease;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .drop-zone {
+            border: 2px dashed #334155;
+            border-radius: 16px;
+            padding: 30px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #0f172a;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.dragover {
+            border-color: #60a5fa;
+            background: #1e293b;
+        }
+
+        .drop-zone p {
+            color: #94a3b8;
+            font-size: 14px;
+            pointer-events: none;
+        }
+
+        .drop-zone .file-name {
+            color: #60a5fa;
+            font-weight: 600;
+            margin-top: 6px;
+            word-break: break-all;
+            pointer-events: none;
+        }
+
+        .drop-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0 18px;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 160px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #cbd5e1;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #f1f5f9;
+            font-size: 14px;
+            outline: none;
+            transition: 0.2s;
+            resize: vertical;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .form-group select option {
+            background: #ffffff;
+            color: #000000;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            background: #3b82f6;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 5px;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: scale(1.01);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: #10b981;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-music {
+            background: #8b5cf6;
+        }
+
+        .btn-music:hover {
+            background: #7c3aed;
+            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-secondary {
+            background: #475569;
+            margin-top: 5px;
+        }
+        .btn-secondary:hover {
+            background: #64748b;
+        }
+
+        .output-box {
+            margin-top: 22px;
+            background: #0f172a;
+            border-radius: 12px;
+            padding: 16px 18px;
+            border: 1px solid #334155;
+            display: none;
+        }
+
+        .output-box.show {
+            display: block;
+        }
+
+        .output-box .label {
+            color: #94a3b8;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .output-box .content {
+            color: #e2e8f0;
+            font-size: 13px;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            background: #020617;
+            padding: 12px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+
+        .output-box .actions {
+            margin-top: 14px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-download {
+            background: #334155;
+            color: #f1f5f9;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-download:hover {
+            background: #475569;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-warning {
+            background: #451a03;
+            border: 1px solid #f59e0b;
+            color: #fbbf24;
+        }
+
+        .alert-info {
+            background: #0c4a6e;
+            border: 1px solid #38bdf8;
+            color: #7dd3fc;
+        }
+
+        .alert-success {
+            background: #064e3b;
+            border: 1px solid #34d399;
+            color: #6ee7b7;
+        }
+
+        .file-info {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+
+        .music-player {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .music-player audio {
+            width: 100%;
+            border-radius: 30px;
+            background: #0f172a;
+        }
+
+        .inline-flex {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .content::-webkit-scrollbar,
+        textarea::-webkit-scrollbar {
+            width: 4px;
+        }
+        .content::-webkit-scrollbar-track,
+        textarea::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .content::-webkit-scrollbar-thumb,
+        textarea::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 10px;
+        }
+
+        @media (max-width: 500px) {
+            .app-container {
+                padding: 20px;
+            }
+            .form-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+
+        <h1>📁 文件加密箱 · 🎵 音乐</h1>
+        <div class="subtitle">纯前端 · 支持粘贴文本解密 · 不上传服务器</div>
+
+        <!-- 模式切换 -->
+        <div class="mode-tabs" id="modeTabs">
+            <button class="mode-tab active" data-mode="encrypt">🔒 加密 / 哈希</button>
+            <button class="mode-tab" data-mode="decrypt">🔓 解密</button>
+            <button class="mode-tab" data-mode="music">🎵 音乐 &amp; Base64</button>
+        </div>
+
+        <!-- ============ 加密面板 ============ -->
+        <div class="panel active" id="encryptPanel">
+            <div class="drop-zone" id="encryptDropZone">
+                <p>📤 点击选择文件 或 拖拽至此</p>
+                <div class="file-name" id="encryptFileName">未选择任何文件</div>
+                <input type="file" id="encryptFileInput">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="encryptPassword">🔑 密码</label>
+                    <input type="password" id="encryptPassword" placeholder="加密密码（AES必须）">
+                </div>
+                <div class="form-group">
+                    <label for="encryptAlgorithm">⚙️ 算法</label>
+                    <select id="encryptAlgorithm">
+                        <option value="aes">AES (可解密)</option>
+                        <option value="md5">MD5 (仅哈希/不可逆)</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn-primary" id="encryptBtn">🚀 执行加密 / 计算哈希</button>
+
+            <div class="output-box" id="encryptOutput">
+                <div class="label">📦 输出结果</div>
+                <div class="content" id="encryptResultContent">等待处理...</div>
+                <div class="actions">
+                    <button class="btn-download" id="downloadEncryptBtn">⬇️ 下载加密文件</button>
+                    <button class="btn-download" id="copyEncryptBtn">📋 复制结果</button>
+                </div>
+            </div>
+
+            <div class="alert alert-info" id="encryptInfoAlert">
+                💡 <span id="encryptInfoText">AES 加密后的文件可随时用「解密」选项卡还原。</span>
+            </div>
+        </div>
+
+        <!-- ============ 解密面板（升级：支持粘贴文本） ============ -->
+        <div class="panel" id="decryptPanel">
+            <!-- 方式1：粘贴文本（新增） -->
+            <div class="form-group">
+                <label for="decryptTextInput">📝 直接粘贴加密的文本（Base64）</label>
+                <textarea id="decryptTextInput" placeholder="将 AES 加密后的 Base64 字符串粘贴到这里..."></textarea>
+            </div>
+
+            <div style="text-align:center; color:#64748b; margin:5px 0 15px;">— 或者上传文件 —</div>
+
+            <!-- 方式2：上传文件（保留） -->
+            <div class="drop-zone" id="decryptDropZone">
+                <p>📤 点击选择加密后的 .txt 文件</p>
+                <div class="file-name" id="decryptFileName">未选择任何文件</div>
+                <input type="file" id="decryptFileInput">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="decryptPassword">🔑 密码</label>
+                    <input type="password" id="decryptPassword" placeholder="加密时使用的密码">
+                </div>
+                <div class="form-group">
+                    <label for="decryptAlgorithm">⚙️ 算法</label>
+                    <select id="decryptAlgorithm">
+                        <option value="aes">AES (解密)</option>
+                        <option value="md5" disabled>MD5 (不可解密)</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn-primary btn-success" id="decryptBtn">🔓 执行解密</button>
+
+            <div class="output-box" id="decryptOutput">
+                <div class="label">📦 解密结果</div>
+                <div class="content" id="decryptResultContent">等待处理...</div>
+                <div class="actions">
+                    <button class="btn-download" id="downloadDecryptBtn">⬇️ 下载原始文件</button>
+                </div>
+            </div>
+
+            <div class="alert alert-warning" id="decryptWarningAlert">
+                ⚠️ 请确保密码正确。若粘贴文本，请直接复制加密输出的全部字符。
+            </div>
+        </div>
+
+        <!-- ============ 音乐 & Base64 面板 ============ -->
+        <div class="panel" id="musicPanel">
+            <!-- 第一部分：生成 Base64 -->
+            <h3 style="color:#f1f5f9; margin-bottom:10px;">📤 上传文件 → 生成 Base64</h3>
+            <div class="drop-zone" id="base64DropZone">
+                <p>📤 点击选择文件 或 拖拽至此（任意格式）</p>
+                <div class="file-name" id="base64FileName">未选择任何文件</div>
+                <input type="file" id="base64FileInput">
+            </div>
+            <button class="btn-primary" id="generateBase64Btn" style="margin-top:0;">⚡ 生成 Base64</button>
+
+            <div class="output-box" id="base64Output">
+                <div class="label">📋 Base64 字符串</div>
+                <div class="content" id="base64ResultContent">等待生成...</div>
+                <div class="actions">
+                    <button class="btn-download" id="copyBase64Btn">📋 复制</button>
+                    <button class="btn-download" id="downloadBase64Btn">⬇️ 下载为 .txt</button>
+                </div>
+            </div>
+
+            <hr style="border-color:#334155; margin:30px 0;">
+
+            <!-- 第二部分：播放 Base64 (MP3) -->
+            <h3 style="color:#f1f5f9; margin-bottom:10px;">🎵 输入 Base64 播放 MP3</h3>
+            <div class="form-group">
+                <label for="musicBase64Input">粘贴 MP3 的 Base64 字符串</label>
+                <textarea id="musicBase64Input" placeholder="将 MP3 文件的 Base64 粘贴到这里..."></textarea>
+            </div>
+
+            <div class="inline-flex" style="gap:10px; margin-top:5px;">
+                <button class="btn-primary btn-music" id="playMusicBtn" style="flex:1;">▶ 播放音乐</button>
+                <button class="btn-download" id="loadMusicFileBtn" style="flex:0 0 auto;">📂 从文件读取Base64</button>
+                <input type="file" id="musicFileInput" style="display:none;" accept=".txt">
+            </div>
+
+            <div class="music-player" id="musicPlayerContainer" style="display:none;">
+                <audio id="musicAudio" controls style="width:100%; margin-top:15px;"></audio>
+            </div>
+            <div class="alert alert-success" id="musicSuccessAlert" style="display:none;">✅ 正在播放音乐...</div>
+            <div class="alert alert-warning" id="musicErrorAlert" style="display:none;">❌ 播放失败，请检查 Base64 是否为有效的 MP3 数据。</div>
+        </div>
+
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // ---------- DOM 引用 ----------
+            const modeTabs = document.querySelectorAll('.mode-tab');
+            const encryptPanel = document.getElementById('encryptPanel');
+            const decryptPanel = document.getElementById('decryptPanel');
+            const musicPanel = document.getElementById('musicPanel');
+
+            // 加密
+            const encryptFileInput = document.getElementById('encryptFileInput');
+            const encryptDropZone = document.getElementById('encryptDropZone');
+            const encryptFileName = document.getElementById('encryptFileName');
+            const encryptPassword = document.getElementById('encryptPassword');
+            const encryptAlgorithm = document.getElementById('encryptAlgorithm');
+            const encryptBtn = document.getElementById('encryptBtn');
+            const encryptOutput = document.getElementById('encryptOutput');
+            const encryptResultContent = document.getElementById('encryptResultContent');
+            const downloadEncryptBtn = document.getElementById('downloadEncryptBtn');
+            const copyEncryptBtn = document.getElementById('copyEncryptBtn');
+            const encryptInfoText = document.getElementById('encryptInfoText');
+
+            // 解密
+            const decryptFileInput = document.getElementById('decryptFileInput');
+            const decryptDropZone = document.getElementById('decryptDropZone');
+            const decryptFileName = document.getElementById('decryptFileName');
+            const decryptPassword = document.getElementById('decryptPassword');
+            const decryptAlgorithm = document.getElementById('decryptAlgorithm');
+            const decryptBtn = document.getElementById('decryptBtn');
+            const decryptOutput = document.getElementById('decryptOutput');
+            const decryptResultContent = document.getElementById('decryptResultContent');
+            const downloadDecryptBtn = document.getElementById('downloadDecryptBtn');
+            const decryptTextInput = document.getElementById('decryptTextInput'); // 新增
+
+            // 音乐 & Base64
+            const base64FileInput = document.getElementById('base64FileInput');
+            const base64DropZone = document.getElementById('base64DropZone');
+            const base64FileName = document.getElementById('base64FileName');
+            const generateBase64Btn = document.getElementById('generateBase64Btn');
+            const base64Output = document.getElementById('base64Output');
+            const base64ResultContent = document.getElementById('base64ResultContent');
+            const copyBase64Btn = document.getElementById('copyBase64Btn');
+            const downloadBase64Btn = document.getElementById('downloadBase64Btn');
+            const musicBase64Input = document.getElementById('musicBase64Input');
+            const playMusicBtn = document.getElementById('playMusicBtn');
+            const musicPlayerContainer = document.getElementById('musicPlayerContainer');
+            const musicAudio = document.getElementById('musicAudio');
+            const musicSuccessAlert = document.getElementById('musicSuccessAlert');
+            const musicErrorAlert = document.getElementById('musicErrorAlert');
+            const loadMusicFileBtn = document.getElementById('loadMusicFileBtn');
+            const musicFileInput = document.getElementById('musicFileInput');
+
+            // 状态变量
+            let encryptFileData = null;
+            let encryptFileNameStr = '';
+            let decryptFileData = null;
+            let decryptFileNameStr = '';
+            let base64FileData = null;
+            let base64FileNameStr = '';
+            let base64FileType = '';
+            let currentBase64String = '';
+
+            // ---------- 辅助函数 ----------
+            function arrayBufferToWordArray(ab) {
+                return CryptoJS.lib.WordArray.create(new Uint8Array(ab));
+            }
+
+            function wordArrayToArrayBuffer(wa) {
+                const bytes = wa.words;
+                const byteArray = new Uint8Array(wa.sigBytes);
+                for (let i = 0; i < wa.sigBytes; i++) {
+                    byteArray[i] = (bytes[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
+                }
+                return byteArray.buffer;
+            }
+
+            function readFileAsBuffer(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (e) => reject(e.target.error);
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+
+            function readFileAsText(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (e) => reject(e.target.error);
+                    reader.readAsText(file);
+                });
+            }
+
+            function readFileAsDataURL(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (e) => reject(e.target.error);
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            function downloadBlob(blob, filename) {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+            }
+
+            // 清理 Base64 字符串
+            function cleanBase64(str) {
+                return str.replace(/\s/g, '');
+            }
+
+            // ---------- 切换 Tab ----------
+            modeTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    modeTabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    const mode = this.dataset.mode;
+                    if (mode === 'encrypt') {
+                        encryptPanel.classList.add('active');
+                        decryptPanel.classList.remove('active');
+                        musicPanel.classList.remove('active');
+                    } else if (mode === 'decrypt') {
+                        encryptPanel.classList.remove('active');
+                        decryptPanel.classList.add('active');
+                        musicPanel.classList.remove('active');
+                    } else if (mode === 'music') {
+                        encryptPanel.classList.remove('active');
+                        decryptPanel.classList.remove('active');
+                        musicPanel.classList.add('active');
+                    }
+                });
+            });
+
+            // ---------- 加密文件选择 ----------
+            encryptFileInput.addEventListener('change', function(e) {
+                if (this.files && this.files[0]) {
+                    const f = this.files[0];
+                    encryptFileNameStr = f.name;
+                    encryptFileName.textContent = f.name + ' (' + (f.size / 1024).toFixed(1) + ' KB)';
+                    readFileAsBuffer(f).then(buf => {
+                        encryptFileData = buf;
+                    }).catch(err => {
+                        alert('读取文件失败: ' + err.message);
+                    });
+                }
+            });
+            encryptDropZone.addEventListener('dragover', (e) => { e.preventDefault();
+                encryptDropZone.classList.add('dragover'); });
+            encryptDropZone.addEventListener('dragleave', () => { encryptDropZone.classList.remove('dragover'); });
+            encryptDropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                encryptDropZone.classList.remove('dragover');
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    encryptFileInput.files = e.dataTransfer.files;
+                    encryptFileInput.dispatchEvent(new Event('change'));
+                }
+            });
+
+            // ---------- 解密文件选择 ----------
+            decryptFileInput.addEventListener('change', function(e) {
+                if (this.files && this.files[0]) {
+                    const f = this.files[0];
+                    decryptFileNameStr = f.name;
+                    decryptFileName.textContent = f.name + ' (' + (f.size / 1024).toFixed(1) + ' KB)';
+                    readFileAsBuffer(f).then(buf => {
+                        decryptFileData = buf;
+                    }).catch(err => {
+                        alert('读取文件失败: ' + err.message);
+                    });
+                }
+            });
+            decryptDropZone.addEventListener('dragover', (e) => { e.preventDefault();
+                decryptDropZone.classList.add('dragover'); });
+            decryptDropZone.addEventListener('dragleave', () => { decryptDropZone.classList.remove('dragover'); });
+            decryptDropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                decryptDropZone.classList.remove('dragover');
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    decryptFileInput.files = e.dataTransfer.files;
+                    decryptFileInput.dispatchEvent(new Event('change'));
+                }
+            });
+
+            // ---------- 加密算法切换 ----------
+            encryptAlgorithm.addEventListener('change', function() {
+                const val = this.value;
+                if (val === 'md5') {
+                    encryptInfoText.textContent = 'MD5 是哈希算法，不可逆。只能校验文件完整性，无法解密。';
+                } else {
+                    encryptInfoText.textContent = 'AES 加密后的文件可随时用「解密」选项卡还原。';
+                }
+                encryptOutput.classList.remove('show');
+            });
+
+            // ---------- 执行加密 ----------
+            encryptBtn.addEventListener('click', async function() {
+                if (!encryptFileData) {
+                    alert('请先选择一个文件！');
+                    return;
+                }
+                const algorithm = encryptAlgorithm.value;
+                const password = encryptPassword.value;
+                if (algorithm === 'aes' && !password) {
+                    alert('AES 加密需要设置密码！');
+                    return;
+                }
+                encryptBtn.disabled = true;
+                encryptBtn.textContent = '⏳ 处理中...';
+                try {
+                    const wordArray = arrayBufferToWordArray(encryptFileData);
+                    let result = '';
+                    if (algorithm === 'md5') {
+                        const hash = CryptoJS.MD5(wordArray);
+                        result = hash.toString(CryptoJS.enc.Hex);
+                        encryptInfoText.textContent = '✅ MD5 哈希值计算完成（不可逆，无法解密）。';
+                    } else {
+                        const encrypted = CryptoJS.AES.encrypt(wordArray, password, { format: CryptoJS.format
+                                .OpenSSL });
+                        result = encrypted.toString();
+                        encryptInfoText.textContent = '✅ AES 加密完成，请妥善保管密码。';
+                    }
+                    // 嵌入原始扩展名元数据（用于解密时恢复后缀）
+                    const originalExt = encryptFileNameStr.match(/\.[^.]+$/) ? encryptFileNameStr.match(/\.[^.]+$/)[0] : '';
+                    const meta = JSON.stringify({ext: originalExt});
+                    const finalResult = 'AESMETA' + meta + ';' + result;
+
+                    encryptResultContent.textContent = finalResult;
+                    encryptOutput.classList.add('show');
+
+                    downloadEncryptBtn.onclick = function() {
+                        let blob, ext = '.txt';
+                        if (algorithm === 'md5') { blob = new Blob([finalResult], { type: 'text/plain' });
+                            ext = '.md5.txt'; } else { blob = new Blob([finalResult], { type: 'text/plain' });
+                            ext = '.aes.txt'; }
+                        const baseName = encryptFileNameStr.replace(/\.[^.]+$/, '') || 'file';
+                        downloadBlob(blob, baseName + '_encrypted' + ext);
+                    };
+                    copyEncryptBtn.onclick = function() {
+                        navigator.clipboard.writeText(finalResult).then(() => { alert('已复制到剪贴板！'); }).catch(
+                        () => {
+                            const ta = document.createElement('textarea');
+                            ta.value = result;
+                            document.body.appendChild(ta);
+                            ta.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(ta);
+                            alert('已复制到剪贴板！');
+                        });
+                    };
+                } catch (err) {
+                    alert('加密/哈希失败: ' + err.message);
+                } finally {
+                    encryptBtn.disabled = false;
+                    encryptBtn.textContent = '🚀 执行加密 / 计算哈希';
+                }
+            });
+
+            // ---------- 执行解密（升级：优先读取文本框） ----------
+            decryptBtn.addEventListener('click', async function() {
+                const password = decryptPassword.value;
+                if (!password) {
+                    alert('请输入解密密码！');
+                    return;
+                }
+
+                let encryptedText = null;
+
+                // 1. 优先尝试从文本框获取
+                const textAreaValue = decryptTextInput.value.trim();
+                if (textAreaValue) {
+                    encryptedText = textAreaValue;
+                }
+                // 2. 如果没有文本，尝试从文件读取
+                else if (decryptFileData) {
+                    try {
+                        const decoder = new TextDecoder('utf-8');
+                        encryptedText = decoder.decode(new Uint8Array(decryptFileData));
+                    } catch (e) {
+                        alert('读取文件内容失败，请确保文件为文本格式。');
+                        return;
+                    }
+                } else {
+                    alert('请粘贴加密文本，或上传包含加密文本的文件！');
+                    return;
+                }
+
+                // 提取嵌入的元数据（原始扩展名）
+                let originalExt = '';
+                const metaMatch = encryptedText.match(/^AESMETA({.*?});/);
+                if (metaMatch) {
+                    try {
+                        const meta = JSON.parse(metaMatch[1]);
+                        originalExt = meta.ext || '';
+                    } catch (e) {}
+                    encryptedText = encryptedText.substring(metaMatch[0].length);
+                }
+
+                decryptBtn.disabled = true;
+                decryptBtn.textContent = '⏳ 解密中...';
+
+                try {
+                    const decrypted = CryptoJS.AES.decrypt(encryptedText, password);
+                    if (decrypted.sigBytes === 0) {
+                        throw new Error('解密失败，可能是密码错误或数据损坏。');
+                    }
+                    const originalBytes = wordArrayToArrayBuffer(decrypted);
+                    let outName = 'restored_file';
+                    if (decryptFileNameStr) {
+                        const baseName = decryptFileNameStr.replace(/\.(aes|enc|txt)$/i, '').replace(/_encrypted$/, '');
+                        outName = baseName + (originalExt || '_restored');
+                    } else {
+                        outName = 'restored' + (originalExt || '_file');
+                    }
+
+                    const previewBytes = originalBytes.slice(0, 200);
+                    const previewText = new TextDecoder('utf-8', { fatal: false }).decode(previewBytes);
+                    decryptResultContent.textContent = '✅ 解密成功！文件大小: ' + (originalBytes.byteLength / 1024)
+                        .toFixed(1) + ' KB\n\n预览（前200字节）:\n' + previewText + '...';
+                    decryptOutput.classList.add('show');
+
+                    downloadDecryptBtn.onclick = function() {
+                        const blob = new Blob([originalBytes], { type: 'application/octet-stream' });
+                        downloadBlob(blob, outName);
+                    };
+
+                } catch (err) {
+                    alert('解密失败: ' + err.message);
+                    decryptOutput.classList.remove('show');
+                } finally {
+                    decryptBtn.disabled = false;
+                    decryptBtn.textContent = '🔓 执行解密';
+                }
+            });
+
+            // ---------- 音乐 & Base64 ----------
+            // 生成 Base64
+            base64FileInput.addEventListener('change', function(e) {
+                if (this.files && this.files[0]) {
+                    const f = this.files[0];
+                    base64FileNameStr = f.name;
+                    base64FileType = f.type;
+                    base64FileName.textContent = f.name + ' (' + (f.size / 1024).toFixed(1) + ' KB)';
+                    readFileAsDataURL(f).then(dataUrl => {
+                        const base64 = dataUrl.split(',')[1];
+                        base64FileData = base64;
+                        currentBase64String = base64;
+                    }).catch(err => { alert('读取文件失败: ' + err.message); });
+                }
+            });
+            base64DropZone.addEventListener('dragover', (e) => { e.preventDefault();
+                base64DropZone.classList.add('dragover'); });
+            base64DropZone.addEventListener('dragleave', () => { base64DropZone.classList.remove('dragover'); });
+            base64DropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                base64DropZone.classList.remove('dragover');
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    base64FileInput.files = e.dataTransfer.files;
+                    base64FileInput.dispatchEvent(new Event('change'));
+                }
+            });
+            generateBase64Btn.addEventListener('click', function() {
+                if (!base64FileData) { alert('请先选择一个文件！'); return; }
+                base64ResultContent.textContent = currentBase64String;
+                base64Output.classList.add('show');
+            });
+            copyBase64Btn.addEventListener('click', function() {
+                const text = base64ResultContent.textContent;
+                if (!text || text === '等待生成...') { alert('没有可复制的内容，请先生成 Base64。'); return; }
+                navigator.clipboard.writeText(text).then(() => { alert('已复制到剪贴板！'); }).catch(() => {
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    alert('已复制到剪贴板！');
+                });
+            });
+            downloadBase64Btn.addEventListener('click', function() {
+                const text = base64ResultContent.textContent;
+                if (!text || text === '等待生成...') { alert('没有可下载的内容，请先生成 Base64。'); return; }
+                const blob = new Blob([text], { type: 'text/plain' });
+                const baseName = base64FileNameStr.replace(/\.[^.]+$/, '') || 'file';
+                downloadBlob(blob, baseName + '_base64.txt');
+            });
+
+            // 音乐播放
+            playMusicBtn.addEventListener('click', function() {
+                const raw = musicBase64Input.value.trim();
+                if (!raw) { alert('请粘贴 MP3 的 Base64 字符串，或通过「从文件读取」导入！'); return; }
+                const clean = cleanBase64(raw);
+
+                // 根据文件扩展名推断音频 MIME 类型
+                function getAudioMimeType(name) {
+                    if (!name) return 'audio/mpeg';
+                    const ext = (name.match(/\.[^.]+$/) || [''])[0].toLowerCase();
+                    const map = {
+                        '.mp3': 'audio/mpeg',
+                        '.wav': 'audio/wav',
+                        '.ogg': 'audio/ogg',
+                        '.m4a': 'audio/mp4',
+                        '.aac': 'audio/aac',
+                        '.flac': 'audio/flac',
+                        '.wma': 'audio/x-ms-wma',
+                        '.webm': 'audio/webm'
+                    };
+                    return map[ext] || 'audio/mpeg';
+                }
+
+                try {
+                    const mimeType = base64FileType || getAudioMimeType(base64FileNameStr);
+                    const dataUrl = 'data:' + mimeType + ';base64,' + clean;
+                    musicAudio.src = dataUrl;
+                    musicAudio.load();
+                    const playPromise = musicAudio.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            musicSuccessAlert.style.display = 'block';
+                            musicErrorAlert.style.display = 'none';
+                            musicPlayerContainer.style.display = 'block';
+                        }).catch(err => {
+                            musicSuccessAlert.style.display = 'none';
+                            musicErrorAlert.style.display = 'block';
+                            musicPlayerContainer.style.display = 'none';
+                            console.error('播放失败:', err);
+                        });
+                    }
+                } catch (e) {
+                    musicSuccessAlert.style.display = 'none';
+                    musicErrorAlert.style.display = 'block';
+                    musicPlayerContainer.style.display = 'none';
+                    console.error('错误:', e);
+                }
+            });
+
+            // 音乐：从文件读取 Base64
+            loadMusicFileBtn.addEventListener('click', () => { musicFileInput.click(); });
+            musicFileInput.addEventListener('change', function(e) {
+                if (this.files && this.files[0]) {
+                    const f = this.files[0];
+                    readFileAsText(f).then(text => {
+                        // 自动填入文本框，并去除可能的空白字符
+                        musicBase64Input.value = cleanBase64(text);
+                        alert('✅ 已成功读取文件内容，点击「播放音乐」即可试听。');
+                    }).catch(err => { alert('读取文件失败: ' + err.message); });
+                }
+            });
+
+            musicBase64Input.addEventListener('input', function() {
+                musicSuccessAlert.style.display = 'none';
+                musicErrorAlert.style.display = 'none';
+                musicPlayerContainer.style.display = 'none';
+            });
+
+            // ---------- 初始化 ----------
+            encryptInfoText.textContent = 'AES 加密后的文件可随时用「解密」选项卡还原。';
+            console.log('📁 加密箱已加载 (CryptoJS ' + CryptoJS.VERSION + ')');
+        })();
+    </script>
+
+</body>
+</html>
