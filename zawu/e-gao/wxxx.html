@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>惊喜！</title>
+    <title>加载资源</title>
     <style>
         * {
             margin: 0;
@@ -21,22 +21,22 @@
             align-items: center;
             font-family: "黑体", sans-serif;
             overflow: hidden;
+            user-select: none;
         }
 
-        /* 加载完成后红黄闪烁背景 */
-        body.show-result {
-            animation: bgFlash 0.5s infinite alternate;
+        /* 加载阶段容器 */
+        #loadWrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+            width: 80%;
+            max-width: 500px;
         }
 
-        @keyframes bgFlash {
-            from { background-color: #ff0000; }
-            to { background-color: #ffff00; }
-        }
-
-        /* 加载文字 */
-        #loading {
-            font-size: 24px;
-            color: #333;
+        #loadingText {
+            font-size: 26px;
+            color: #222;
             animation: blink 1s infinite;
         }
 
@@ -45,11 +45,46 @@
             51%, 100% { opacity: 0.3; }
         }
 
-        /* 内容容器全局居中 */
+        /* 进度条 */
+        .progressBox {
+            width: 100%;
+            height: 16px;
+            background: #ddd;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+        .progressBar {
+            height: 100%;
+            width: 0%;
+            background: #222;
+            transition: width 0.08s linear;
+        }
+
+        /* 进入按钮，默认隐藏 */
+        #enterBtn {
+            display: none;
+            margin-top: 20px;
+            padding: 12px 40px;
+            font-size: 20px;
+            border: none;
+            background: #111;
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        /* 恶搞主页面 */
         #content {
             display: none;
             text-align: center;
             width: 100%;
+        }
+        body.show-result {
+            animation: bgFlash 0.5s infinite alternate;
+        }
+        @keyframes bgFlash {
+            from { background-color: #ff0000; }
+            to { background-color: #ffff00; }
         }
 
         .main-text {
@@ -60,49 +95,36 @@
             animation: shake 0.1s infinite;
             margin-bottom: 40px;
         }
-
+        .emoji {
+            font-size: 100px;
+            margin: 30px 0;
+            animation: bounce 0.3s infinite;
+        }
         .sub-text {
             font-size: 50px;
             font-weight: bold;
             color: #000;
             animation: shake 0.15s infinite reverse;
         }
-
-        .emoji {
-            font-size: 100px;
-            margin: 30px 0;
-            animation: bounce 0.3s infinite;
-        }
-
         @keyframes bounce {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.3); }
+            0%,100%{transform:scale(1)}
+            50%{transform:scale(1.3)}
         }
-
         @keyframes shake {
-            0% { transform: translate(0, 0) rotate(0deg); }
-            25% { transform: translate(5px, 5px) rotate(1deg); }
-            50% { transform: translate(-5px, 5px) rotate(-1deg); }
-            75% { transform: translate(5px, -5px) rotate(1deg); }
-            100% { transform: translate(0, 0) rotate(0deg); }
+            0% { transform: translate(0,0) rotate(0deg); }
+            25% { transform: translate(5px,5px) rotate(1deg); }
+            50% { transform: translate(-5px,5px) rotate(-1deg); }
+            75% { transform: translate(5px,-5px) rotate(1deg); }
+            100% { transform: translate(0,0) rotate(0deg); }
         }
 
-        /* 隐藏触发用图片 */
-        #fakeImg {
-            position: fixed;
-            width: 0;
-            height: 0;
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        /* 跳过弹窗 */
+        /* 开发者弹窗 */
         #skip-modal {
             display: none;
             position: fixed;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%);
+            transform: translate(-50%,-50%);
             background: #fff;
             padding: 30px 40px;
             border-radius: 8px;
@@ -119,134 +141,132 @@
             padding: 10px 24px;
             font-size: 16px;
             border: none;
-            background: #ff0000;
+            background: #f00;
             color: #fff;
             border-radius: 4px;
             cursor: pointer;
         }
 
         /* 手机适配 */
-        @media (max-width: 768px) {
-            .main-text {
-                font-size: 45px;
-            }
-            .sub-text {
-                font-size: 30px;
-            }
-            .emoji {
-                font-size: 60px;
-            }
+        @media (max-width:768px) {
+            .main-text { font-size: 45px; }
+            .sub-text { font-size: 30px; }
+            .emoji { font-size: 60px; }
+            #loadingText { font-size: 20px; }
         }
     </style>
 </head>
 <body>
-    <div id="loading">加载中</div>
+    <!-- 加载界面 -->
+    <div id="loadWrap">
+        <div id="loadingText">加载中</div>
+        <div class="progressBox">
+            <div class="progressBar" id="bar"></div>
+        </div>
+        <button id="enterBtn">我知道了，点击进入</button>
+    </div>
 
+    <!-- 恶搞页面 -->
     <div id="content">
         <div class="main-text">哈哈哈你被搞了！</div>
         <div class="emoji">🤣🤣🤣</div>
         <div class="sub-text">立刻转发给自己的两个朋友</div>
-        <div class="sub-text" style="margin-top: 20px; color: #fff;">要不然是gay！</div>
+        <div class="sub-text" style="margin-top:20px;color:#fff;">要不然是gay！</div>
     </div>
 
-    <!-- 假图片，链接不存在，加载失败自动触发音频播放 -->
-    <img id="fakeImg" src="https://invalid-image-link-1234567890.com/none.png">
-
-    <!-- 一键跳过弹窗 -->
+    <!-- 开发者调试弹窗 -->
     <div id="skip-modal">
-        <div>开发者选项</div>
-        <button id="skip-btn">一键跳过加载</button>
+        <div>开发者调试入口</div>
+        <button id="devSkipBtn">一键跳过加载直接预览</button>
     </div>
 
-    <script>
-        const BASE64_TXT = './usy_base64.txt';
+<script>
+const BASE64_FILE = "./usy_base64.txt";
 
-        const loadingEl = document.getElementById('loading');
-        const contentEl = document.getElementById('content');
-        const skipModal = document.getElementById('skip-modal');
-        const skipBtn = document.getElementById('skip-btn');
-        const fakeImg = document.getElementById('fakeImg');
+const loadWrap = document.getElementById("loadWrap");
+const loadingText = document.getElementById("loadingText");
+const bar = document.getElementById("bar");
+const enterBtn = document.getElementById("enterBtn");
+const content = document.getElementById("content");
+const skipModal = document.getElementById("skip-modal");
+const devSkipBtn = document.getElementById("devSkipBtn");
 
-        let isSkipped = false;
-        let prankAudio = null;
+let audio = null;
+let loadComplete = false;
 
-        // 读取 base64 文本解码生成MP3
-        async function compileMp3FromBase64() {
-            const res = await fetch(BASE64_TXT);
-            let base64Str = await res.text();
-            base64Str = base64Str.replace(/\s/g, '');
-
-            const binary = atob(base64Str);
-            const len = binary.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-                bytes[i] = binary.charCodeAt(i);
-            }
-
-            const blob = new Blob([bytes], { type: 'audio/mpeg' });
-            const audioUrl = URL.createObjectURL(blob);
-            const audio = new Audio(audioUrl);
-            audio.loop = true;
-
-            await new Promise((resolve, reject) => {
-                audio.addEventListener('canplaythrough', resolve);
-                audio.addEventListener('error', reject);
-                audio.load();
-            });
-
-            return audio;
+// 模拟进度条动画
+function runProgress() {
+    let width = 0;
+    const timer = setInterval(()=>{
+        width += Math.random() * 1.2;
+        if(width >= 100) {
+            width = 100;
+            clearInterval(timer);
+            loadComplete = true;
+            enterBtn.style.display = "block";
         }
+        bar.style.width = width + "%";
+    },40);
+}
 
-        // 直接展示恶搞页面
-        function showResult() {
-            loadingEl.style.display = 'none';
-            document.body.classList.add('show-result');
-            contentEl.style.display = 'block';
-            skipModal.style.display = 'none';
-        }
+// 读取base64转mp3音频
+async function decodeAudio() {
+    const res = await fetch(BASE64_FILE);
+    let b64 = await res.text();
+    b64 = b64.replace(/\s/g,"");
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) arr[i] = bin.charCodeAt(i);
+    const blob = new Blob([arr],{type:"audio/mpeg"});
+    const url = URL.createObjectURL(blob);
+    const aud = new Audio(url);
+    aud.loop = true;
+    await new Promise((res)=>{aud.addEventListener("canplaythrough",res)});
+    audio = aud;
+}
 
-        // 图片加载失败自动播放音乐
-        fakeImg.addEventListener('error', () => {
-            if(prankAudio) prankAudio.play();
-        });
+// 切换到恶搞页面并播放音乐
+function switchPrank() {
+    loadWrap.style.display = "none";
+    document.body.classList.add("show-result");
+    content.style.display = "block";
+    if(audio) audio.play();
+}
 
-        // 主加载流程
-        async function init() {
-            try {
-                prankAudio = await compileMp3FromBase64();
-                if (isSkipped) return;
-                showResult();
-            } catch (e) {}
-        }
+// 进入按钮点击事件（唯一正常进入通道）
+enterBtn.onclick = switchPrank;
 
-        // 右上角连续点击16次弹出开发者跳过窗口
-        let clickCount = 0;
-        let lastClickTime = 0;
-        document.addEventListener('click', (e) => {
-            const w = window.innerWidth;
-            const h = window.innerHeight;
-            const inTopRight = e.clientX > w * 0.8 && e.clientY < h * 0.2;
-            if (!inTopRight) return;
+// 右上角16次点击调出开发者跳过
+let clickCount = 0;
+let lastClick = 0;
+document.addEventListener("click",(e)=>{
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const topRight = e.clientX > w*0.8 && e.clientY < h*0.2;
+    if(!topRight) return;
 
-            const now = Date.now();
-            if (now - lastClickTime > 2000) clickCount = 0;
-            lastClickTime = now;
-            clickCount++;
+    const now = Date.now();
+    if(now - lastClick > 2000) clickCount = 0;
+    lastClick = now;
+    clickCount++;
 
-            if (clickCount >= 16) {
-                clickCount = 0;
-                skipModal.style.display = 'block';
-            }
-        });
+    if(clickCount >= 16) {
+        clickCount = 0;
+        skipModal.style.display = "block";
+    }
+})
 
-        // 一键跳过按钮
-        skipBtn.addEventListener('click', () => {
-            isSkipped = true;
-            showResult();
-            if(prankAudio) prankAudio.play();
-        });
+// 开发者一键跳过
+devSkipBtn.onclick = ()=>{
+    skipModal.style.display = "none";
+    switchPrank();
+}
 
-        window.addEventListener('load', init);
-    </script>
+// 页面初始化
+window.onload = async ()=>{
+    runProgress();
+    await decodeAudio();
+}
+</script>
 </body>
 </html>
