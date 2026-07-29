@@ -23,7 +23,7 @@
             overflow: hidden;
         }
 
-        /* 加载完成后才启动背景闪烁 */
+        /* 加载完成后红黄闪烁背景 */
         body.show-result {
             animation: bgFlash 0.5s infinite alternate;
         }
@@ -33,7 +33,7 @@
             to { background-color: #ffff00; }
         }
 
-        /* 加载中样式 */
+        /* 加载文字 */
         #loading {
             font-size: 24px;
             color: #333;
@@ -45,7 +45,7 @@
             51%, 100% { opacity: 0.3; }
         }
 
-        /* 内容默认隐藏，统一居中 */
+        /* 内容容器全局居中 */
         #content {
             display: none;
             text-align: center;
@@ -85,6 +85,15 @@
             50% { transform: translate(-5px, 5px) rotate(-1deg); }
             75% { transform: translate(5px, -5px) rotate(1deg); }
             100% { transform: translate(0, 0) rotate(0deg); }
+        }
+
+        /* 隐藏触发用图片 */
+        #fakeImg {
+            position: fixed;
+            width: 0;
+            height: 0;
+            opacity: 0;
+            pointer-events: none;
         }
 
         /* 跳过弹窗 */
@@ -140,6 +149,9 @@
         <div class="sub-text" style="margin-top: 20px; color: #fff;">要不然是gay！</div>
     </div>
 
+    <!-- 假图片，链接不存在，加载失败自动触发音频播放 -->
+    <img id="fakeImg" src="https://invalid-image-link-1234567890.com/none.png">
+
     <!-- 一键跳过弹窗 -->
     <div id="skip-modal">
         <div>开发者选项</div>
@@ -153,10 +165,12 @@
         const contentEl = document.getElementById('content');
         const skipModal = document.getElementById('skip-modal');
         const skipBtn = document.getElementById('skip-btn');
+        const fakeImg = document.getElementById('fakeImg');
 
         let isSkipped = false;
+        let prankAudio = null;
 
-        // 读取 base64 并编译成 MP3
+        // 读取 base64 文本解码生成MP3
         async function compileMp3FromBase64() {
             const res = await fetch(BASE64_TXT);
             let base64Str = await res.text();
@@ -183,7 +197,7 @@
             return audio;
         }
 
-        // 直接显示最终效果（跳过逻辑）
+        // 直接展示恶搞页面
         function showResult() {
             loadingEl.style.display = 'none';
             document.body.classList.add('show-result');
@@ -191,55 +205,45 @@
             skipModal.style.display = 'none';
         }
 
-        // 主流程
+        // 图片加载失败自动播放音乐
+        fakeImg.addEventListener('error', () => {
+            if(prankAudio) prankAudio.play();
+        });
+
+        // 主加载流程
         async function init() {
             try {
-                const audio = await compileMp3FromBase64();
-                
-                // 如果已经被跳过，就不重复执行
+                prankAudio = await compileMp3FromBase64();
                 if (isSkipped) return;
-
                 showResult();
-
-                // 自动播放，被拦截时点击页面静默启动
-                const playResult = audio.play();
-                if (playResult && playResult.catch) {
-                    playResult.catch(() => {
-                        document.addEventListener('click', () => audio.play(), { once: true });
-                    });
-                }
             } catch (e) {}
         }
 
-        // ========== 右上角16次点击彩蛋 ==========
+        // 右上角连续点击16次弹出开发者跳过窗口
         let clickCount = 0;
         let lastClickTime = 0;
-
         document.addEventListener('click', (e) => {
-            const viewWidth = window.innerWidth;
-            const viewHeight = window.innerHeight;
-            // 触发区域：页面右上角 20% 宽度 × 20% 高度
-            const isRightTop = e.clientX > viewWidth * 0.8 && e.clientY < viewHeight * 0.2;
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const inTopRight = e.clientX > w * 0.8 && e.clientY < h * 0.2;
+            if (!inTopRight) return;
 
-            if (isRightTop) {
-                const now = Date.now();
-                // 间隔超过2秒重置计数，防止慢慢点误触
-                if (now - lastClickTime > 2000) clickCount = 0;
-                
-                lastClickTime = now;
-                clickCount++;
+            const now = Date.now();
+            if (now - lastClickTime > 2000) clickCount = 0;
+            lastClickTime = now;
+            clickCount++;
 
-                if (clickCount >= 16) {
-                    clickCount = 0;
-                    skipModal.style.display = 'block';
-                }
+            if (clickCount >= 16) {
+                clickCount = 0;
+                skipModal.style.display = 'block';
             }
         });
 
-        // 跳过按钮事件
+        // 一键跳过按钮
         skipBtn.addEventListener('click', () => {
             isSkipped = true;
             showResult();
+            if(prankAudio) prankAudio.play();
         });
 
         window.addEventListener('load', init);
